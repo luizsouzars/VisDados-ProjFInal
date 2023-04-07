@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-dataframe = pd.read_csv('data\dados_entregas_last_mile.csv',sep=';')
+dataframe = pd.read_csv(r'data/dados_entregas_last_mile.csv',sep=';')
 
 st.title("___ Renner - LastMile ___")
 st.subtitle("Projeto da disciplina de Visualização de Dados\nProfessora: Isabel")
