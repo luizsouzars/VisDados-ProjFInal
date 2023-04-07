@@ -5,4 +5,4 @@ import numpy as np
 dataframe = pd.read_csv('dados_entregas_last_mile.csv',sep=';')
 
 # st.dataframe(dataframe.style.highlight_max(axis=0))
-st.dataframe()
+st.dataframe(dataframe)
