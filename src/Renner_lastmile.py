@@ -10,3 +10,5 @@ st.write("Desenvolvido por:\nFlorensa Dimer, Leandra Torbes e Luiz Eduardo de So
 
 # st.dataframe(dataframe.style.highlight_max(axis=0))
 st.dataframe(dataframe.head())
+
+st.bar_chart(dataframe,x=dataframe['cep'],y=dataframe['remessa'].sum())
