@@ -18,7 +18,7 @@ st.set_page_config(
 
 @st.cache_data
 def get_data() -> pd.DataFrame:
-    return pd.read_csv(r"data\dados_entregas_last_mile.csv", sep=";")
+    return pd.read_csv(r"..\data\dados_entregas_last_mile.csv", sep=";")
 
 
 def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
