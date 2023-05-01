@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-import plotly.figure_factory as ff
+# import plotly.figure_factory as ff
 import plotly.express as px
 from pandas.api.types import (
     is_categorical_dtype,
