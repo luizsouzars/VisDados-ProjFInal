@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-
-# import plotly.figure_factory as ff
+from PIL import Image
 import plotly.express as px
 from pandas.api.types import (
     is_categorical_dtype,
@@ -12,7 +11,9 @@ from pandas.api.types import (
 )
 
 st.set_page_config(
-    page_title="Last Mile - Renner", page_icon="chart_with_upwards_trend", layout="wide"
+    page_title="Last Mile - Renner",
+    page_icon="chart_with_upwards_trend",
+    layout="wide",
 )
 
 
@@ -31,7 +32,7 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Filtered dataframe
     """
-    modify = st.checkbox("Add filters")
+    modify = st.checkbox("Adicionar filtros")
 
     if not modify:
         return df
@@ -52,13 +53,13 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     modification_container = st.container()
 
     with modification_container:
-        to_filter_columns = st.multiselect("Filter dataframe on", df.columns)
+        to_filter_columns = st.multiselect("Filtrar dados:", df.columns)
         for column in to_filter_columns:
             left, right = st.columns((1, 20))
             # Treat columns with < 10 unique values as categorical
             if is_categorical_dtype(df[column]) or df[column].nunique() < 10:
                 user_cat_input = right.multiselect(
-                    f"Values for {column}",
+                    f"Valores para {column}",
                     df[column].unique(),
                     default=list(df[column].unique()),
                 )
@@ -68,7 +69,7 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
                 _max = float(df[column].max())
                 step = (_max - _min) / 100
                 user_num_input = right.slider(
-                    f"Values for {column}",
+                    f"Valores para {column}",
                     min_value=_min,
                     max_value=_max,
                     value=(_min, _max),
@@ -77,7 +78,7 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
                 df = df[df[column].between(*user_num_input)]
             elif is_datetime64_any_dtype(df[column]):
                 user_date_input = right.date_input(
-                    f"Values for {column}",
+                    f"Valores para {column}",
                     value=(
                         df[column].min(),
                         df[column].max(),
@@ -89,7 +90,7 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
                     df = df.loc[df[column].between(start_date, end_date)]
             else:
                 user_text_input = right.text_input(
-                    f"Substring or regex in {column}",
+                    f"Texto ou regex em {column}",
                 )
                 if user_text_input:
                     df = df[df[column].astype(str).str.contains(user_text_input)]
@@ -98,9 +99,32 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 st.markdown(
-    """# Operação Last-Mile - Renner SA
-### Ferramentas de visualização de dados para auxílio à tomada de decisão
+    """# Operação Last-Mile - **:red[Renner SA]**
+## Ferramentas de visualização de dados para auxílio à tomada de decisão"""
+)
+st.markdown(
+    """Operação Last-mile é a última etapa da malha logística da **:red[Renner]**, ou seja, a entrega para o cliente final.
+Por tratar-se de transporte, rotas e disponibilidade de entrega, é a etapa mais custosa da operação.  
+Para aumentar a eficiância desta parte do processo, o time do **TP (transit point)** faz roteirização dos pedidos prontos e os disponibiliza aos motoristas para que a entrega seja feita."""
+)
 
+rot1 = Image.open(r"img/roteir1.jpg")
+st.image(rot1)
+
+st.markdown(
+    """## Perguntas de negócio
+Dadas as características da operação, algumas questões que se impõem são:
+- Qual é a qualidade da roteirização?
+- Quais são as principais regiões, horários e dias em que há mais entregas?
+- Quantas remessas estão sendo entregues na média e no máximo?
+- Como o tempo de deslocamento influencia nas entregas?"""
+)
+st.markdown(
+    """Buscando entender esta dinâmica e responder à estas questões, foi elaborado um estudo para que fosse possível visualizar os dados de forma mais clara e
+auxiliar os tomadores de decisão na condução de mudanças necessárias e acompanhamento sumarizado do dia-a-dia."""
+)
+st.markdown(
+    """
 ## Conteúdo
 1. [Disciplina](#disciplina)
 2. [Overview](#overview)
@@ -163,20 +187,26 @@ df["cep"] = pd.Categorical(df["cep"].astype("string"))
 df["remessa"] = pd.Categorical(df["remessa"].astype("string"))
 df["distancia"] = df["distancia"].astype("float")
 df["distancia_rota"] = df["distancia_rota"].astype("float")
+df["status_tracking"] = np.where(df["status_tracking"] == "Delivered", 1, 0)
+df = df.rename(columns={"status_tracking": "Delivered"})
 df_plot = filter_dataframe(df)
-st.dataframe(df_plot)
+# st.dataframe(df_plot)
 
-# fig = px.bar(
-#     df_plot,
-#     x="codigo_rota",
-#     y="distancia",
-#     barmode="group",
-#     text_auto=".2s",
-# )
-# fig.update_layout(xaxis={"categoryorder": "total descending"})
+dfg = df_plot
+dfg = dfg.rename(columns={"status_tracking": "Delivered"})
 
-fig = px.histogram(x="cep", y="status_tracking", data_frame=df_plot, histfunc="count")
-fig.update_xaxes(categoryorder="total ascending")
+fig = px.bar(
+    x="cep",
+    y="Delivered",
+    data_frame=dfg,
+    labels={"cep": "CEP", "Delivered": "Total de Entregas"},
+    barmode="group",
+)
+fig.update_layout(barmode="group", xaxis={"categoryorder": "sum descending"})
+fig.update_xaxes(type="category")
+fig.update_traces(
+    textfont_size=12, textangle=0, textposition="outside", cliponaxis=False
+)
+
+st.subheader("Total de entregas por CEP")
 st.plotly_chart(fig, use_container_width=True)
-
-# st.bar_chart(dataframe,x=dataframe['cep'],y=dataframe['remessa'].sum())
