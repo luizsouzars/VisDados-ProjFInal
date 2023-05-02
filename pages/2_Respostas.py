@@ -26,10 +26,7 @@ Segue abaixo os gráficos que podem nos ajudar a entender melhor as propostas fe
 
 @st.cache_data
 def get_data() -> pd.DataFrame:
-    df = pd.read_csv(
-        r"data\dados_entregas_last_mile.csv",
-        sep=";",
-    )
+    df = pd.read_csv(r"data/dados_entregas_last_mile.csv", sep=";")
     df["codigo_rota"] = pd.Categorical(df["codigo_rota"].astype("string"))
     df["sq_plan"] = pd.Categorical(df["sq_plan"].astype("string"))
     df["cep"] = pd.Categorical(df["cep"].astype("string"))
