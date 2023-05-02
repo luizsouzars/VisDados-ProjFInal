@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from PIL import Image
 import plotly.express as px
 from pandas.api.types import (
     is_categorical_dtype,
@@ -20,14 +19,15 @@ st.title("Sobre os dados")
 
 st.markdown(
     """
-A base traz dados das entregas realizadas durante o mês de novembro de 2022 em São Paulo e região metropolitana.
+##### A base traz dados das entregas realizadas durante o mês de novembro de 2022 em São Paulo e região metropolitana.
 
 **codigo_rota**: Código da rota.  
-**status_tracking**: Status do pedido. Esta base traz apenas o status “Delivered”, que são os pedidos que foram entregues.  
+**delivered**: Status do pedido. Esta base traz apenas o status “Delivered”, que são os pedidos que foram entregues.  
 **rota_inicio**: Dia e hora de início da rota.  
 **rota_final**: Dia e hora de término da rota.  
-**hora_entrega**: Dia e hora em que ocorreu a entrega.  
-**sq_plan**: Sequência de entrega planejada no momento da roteirização, para cada remessa.  
+**horas_rota**: Tempo total da rota (em horas)
+**data_entrega**: Dia e hora em que ocorreu a entrega.  
+**horas_entrega**: Tempo do início da rota até a entrega (em horas)
 **cep**: Cabeça de CEP, ou seja, os três primeiros números de um CEP.  
 **distancia**: Distância percorrida em km desde a última entrega (ou saída do TP, no caso da primeira entrega).  
 **distancia_rota**: Distância total planejada para a rota no momento da roteirização, em km.  
@@ -41,7 +41,53 @@ st.markdown("## Filtre os dados conforme sua necessidade")
 
 @st.cache_data
 def get_data() -> pd.DataFrame:
-    return pd.read_csv(r"data/dados_entregas_last_mile.csv", sep=";")
+    df = pd.read_csv(r"data/dados_entregas_last_mile.csv", sep=";")
+
+    for col in df.columns:
+        if is_object_dtype(df[col]):
+            try:
+                df[col] = pd.to_datetime(df[col])
+            except Exception:
+                pass
+        if is_datetime64_any_dtype(df[col]):
+            df[col] = df[col].dt.tz_localize(None)
+
+    df["codigo_rota"] = pd.Categorical(df["codigo_rota"].astype("string"))
+    df["sq_plan"] = pd.Categorical(df["sq_plan"].astype("string"))
+    df["cep"] = pd.Categorical(df["cep"].astype("string"))
+    df["remessa"] = pd.Categorical(df["remessa"].astype("string"))
+    df["distancia"] = df["distancia"].astype("float")
+    df["distancia_rota"] = df["distancia_rota"].astype("float")
+    df["status_tracking"] = np.where(df["status_tracking"] == "Delivered", 1, 0)
+    df = df.rename(
+        columns={"status_tracking": "delivered", "hora_entrega": "data_entrega"}
+    )
+
+    df["horas_entrega"] = df["data_entrega"] - df["rota_inicio"]
+    df["horas_entrega"] = np.round((df["horas_entrega"].dt.seconds) / (60 * 60), 2)
+
+    df["horas_rota"] = df["rota_final"] - df["rota_inicio"]
+    df["horas_rota"] = np.round((df["horas_rota"].dt.seconds) / (60 * 60), 2)
+
+    df = df[
+        [
+            "codigo_rota",
+            "delivered",
+            "rota_inicio",
+            "rota_final",
+            "horas_rota",
+            "data_entrega",
+            "horas_entrega",
+            "cep",
+            "distancia",
+            "distancia_rota",
+            "remessa",
+            "transportadora",
+            "veiculo",
+        ]
+    ]
+
+    return df
 
 
 def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -54,10 +100,6 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Filtered dataframe
     """
-    modify = st.checkbox("Adicionar filtros")
-
-    if not modify:
-        return df
 
     df = df.copy()
 
@@ -75,7 +117,7 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     modification_container = st.container()
 
     with modification_container:
-        to_filter_columns = st.multiselect("Filtrar dados:", df.columns)
+        to_filter_columns = st.multiselect("Filtros:", df.columns)
         for column in to_filter_columns:
             left, right = st.columns((1, 20))
             # Treat columns with < 10 unique values as categorical
@@ -121,33 +163,89 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 df = get_data()
-
-df["codigo_rota"] = pd.Categorical(df["codigo_rota"].astype("string"))
-df["sq_plan"] = pd.Categorical(df["sq_plan"].astype("string"))
-df["cep"] = pd.Categorical(df["cep"].astype("string"))
-df["remessa"] = pd.Categorical(df["remessa"].astype("string"))
-df["distancia"] = df["distancia"].astype("float")
-df["distancia_rota"] = df["distancia_rota"].astype("float")
-df["status_tracking"] = np.where(df["status_tracking"] == "Delivered", 1, 0)
-df = df.rename(columns={"status_tracking": "Delivered"})
 df_plot = filter_dataframe(df)
-st.dataframe(df_plot)
 
-dfg = df_plot
-dfg = dfg.rename(columns={"status_tracking": "Delivered"})
-
-fig = px.bar(
-    x="cep",
-    y="Delivered",
-    data_frame=dfg,
-    labels={"cep": "CEP", "Delivered": "Total de Entregas"},
-    barmode="group",
-)
-fig.update_layout(barmode="group", xaxis={"categoryorder": "sum descending"})
-fig.update_xaxes(type="category")
-fig.update_traces(
-    textfont_size=12, textangle=0, textposition="outside", cliponaxis=False
+st.header("Metadados")
+st.write(f"**Quantidade total de registros .......... {len(df_plot)}**")
+st.write(
+    f"**Quantidade total de rotas .......... {len(df_plot['codigo_rota'].unique())}**"
 )
 
-st.subheader("Total de entregas por CEP")
-st.plotly_chart(fig, use_container_width=True)
+# Describe
+st.subheader("Métricas")
+st.write(df_plot.describe())
+
+# Maiores Distâncias totais
+st.write("**Rotas com maiores distâncias totais:**")
+dim = len(df_plot["codigo_rota"].unique())
+if dim > 10:
+    dim = 10
+rotatot = (
+    df_plot.sort_values("distancia_rota", ascending=False)[
+        ["codigo_rota", "distancia_rota"]
+    ]
+    .drop_duplicates()
+    .head(dim)
+    .reset_index(drop=True)
+)
+rotatot.index = [n for n in range(1, dim + 1)]
+st.dataframe(rotatot, use_container_width=True)
+
+# Maiores Horas totais de rota
+st.write("**Maiores tempos totais de rota:**")
+dim = len(df_plot["codigo_rota"].unique())
+if dim > 10:
+    dim = 10
+hrsRota = (
+    df_plot.sort_values("horas_rota", ascending=False)[["codigo_rota", "horas_rota"]]
+    .drop_duplicates()
+    .head(dim)
+    .reset_index(drop=True)
+)
+hrsRota.index = [n for n in range(1, dim + 1)]
+st.dataframe(hrsRota, use_container_width=True)
+
+# Maiores Distâncias de entregas
+st.write("**Maiores Distâncias de entregas:**")
+dim = len(df_plot["codigo_rota"].unique())
+if dim > 10:
+    dim = 10
+dists = (
+    df_plot.sort_values("distancia", ascending=False)[
+        ["codigo_rota", "cep", "distancia"]
+    ]
+    .drop_duplicates()
+    .head(dim)
+    .reset_index(drop=True)
+)
+dists.index = [n for n in range(1, dim + 1)]
+st.dataframe(dists, use_container_width=True)
+
+# Maiores Horas de Entrega
+st.write("**Tempo para entrega:**")
+dim = len(df_plot["codigo_rota"].unique())
+if dim > 10:
+    dim = 10
+hrsEntrega = (
+    df_plot.sort_values("horas_entrega", ascending=False)[
+        ["codigo_rota", "cep", "remessa", "horas_entrega"]
+    ]
+    .drop_duplicates()
+    .head(dim)
+    .reset_index(drop=True)
+)
+hrsEntrega.index = [n for n in range(1, dim + 1)]
+st.dataframe(hrsEntrega, use_container_width=True)
+
+# Rastreio de entregas
+st.write("**Ratreio de Entregas:**")
+st.dataframe(
+    df_plot[["codigo_rota", "cep", "distancia", "data_entrega", "remessa"]].sort_values(
+        ["codigo_rota", "data_entrega"], ascending=True
+    )
+)
+
+# Exibe o Dataframe
+if st.checkbox("Visualizar Dataframe Completo"):
+    # st.subheader("Dataframe Completo")
+    st.dataframe(df_plot, use_container_width=True)

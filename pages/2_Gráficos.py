@@ -16,7 +16,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("Respostas")
+st.title("Gráficos")
 
 st.markdown(
     """
@@ -27,6 +27,16 @@ Segue abaixo os gráficos que podem nos ajudar a entender melhor as propostas fe
 @st.cache_data
 def get_data() -> pd.DataFrame:
     df = pd.read_csv(r"data/dados_entregas_last_mile.csv", sep=";")
+
+    for col in df.columns:
+        if is_object_dtype(df[col]):
+            try:
+                df[col] = pd.to_datetime(df[col])
+            except Exception:
+                pass
+        if is_datetime64_any_dtype(df[col]):
+            df[col] = df[col].dt.tz_localize(None)
+
     df["codigo_rota"] = pd.Categorical(df["codigo_rota"].astype("string"))
     df["sq_plan"] = pd.Categorical(df["sq_plan"].astype("string"))
     df["cep"] = pd.Categorical(df["cep"].astype("string"))
@@ -34,7 +44,34 @@ def get_data() -> pd.DataFrame:
     df["distancia"] = df["distancia"].astype("float")
     df["distancia_rota"] = df["distancia_rota"].astype("float")
     df["status_tracking"] = np.where(df["status_tracking"] == "Delivered", 1, 0)
-    df = df.rename(columns={"status_tracking": "Delivered"})
+    df = df.rename(
+        columns={"status_tracking": "delivered", "hora_entrega": "data_entrega"}
+    )
+
+    df["horas_entrega"] = df["data_entrega"] - df["rota_inicio"]
+    df["horas_entrega"] = np.round((df["horas_entrega"].dt.seconds) / (60 * 60), 2)
+
+    df["horas_rota"] = df["rota_final"] - df["rota_inicio"]
+    df["horas_rota"] = np.round((df["horas_rota"].dt.seconds) / (60 * 60), 2)
+
+    df = df[
+        [
+            "codigo_rota",
+            "delivered",
+            "rota_inicio",
+            "rota_final",
+            "horas_rota",
+            "data_entrega",
+            "horas_entrega",
+            "cep",
+            "distancia",
+            "distancia_rota",
+            "remessa",
+            "transportadora",
+            "veiculo",
+        ]
+    ]
+
     return df
 
 
@@ -120,17 +157,18 @@ ckb = st.checkbox("Mostrar Dataframe")
 df = get_data()
 df_plot = filter_dataframe(df)
 
+# Exibe ou não o Dataframe
 if ckb:
     st.dataframe(df_plot)
 
-dfg = df_plot
-dfg = dfg.rename(columns={"status_tracking": "Delivered"})
+# Total de entregas por CEP
+dfg = df_plot[["cep", "delivered"]].groupby("cep").agg("sum")
 
 fig = px.bar(
-    x="cep",
-    y="Delivered",
+    x=dfg.index,
+    y="delivered",
     data_frame=dfg,
-    labels={"cep": "CEP", "Delivered": "Total de Entregas"},
+    labels={"cep": "CEP", "delivered": "Total de Entregas"},
     barmode="group",
 )
 fig.update_layout(barmode="group", xaxis={"categoryorder": "sum descending"})
@@ -140,4 +178,51 @@ fig.update_traces(
 )
 
 st.subheader("Total de entregas por CEP")
+st.plotly_chart(fig, use_container_width=True)
+
+# Média do tempo de entrega por CEP
+dfmedEnt = df_plot[["cep", "horas_entrega"]].groupby("cep").agg("mean")
+
+fig = px.bar(
+    x=dfmedEnt.index,
+    y="horas_entrega",
+    data_frame=dfmedEnt,
+    labels={"cep": "CEP", "horas_entrega": "Média de Horas"},
+    barmode="group",
+)
+fig.update_layout(barmode="group", xaxis={"categoryorder": "sum descending"})
+fig.update_xaxes(type="category")
+fig.update_traces(
+    textfont_size=12, textangle=0, textposition="outside", cliponaxis=False
+)
+
+st.subheader("Média do tempo de entrega por CEP")
+st.plotly_chart(fig, use_container_width=True)
+
+# Correlação entre dados
+dfcorr = df_plot.drop(columns="delivered").corr(numeric_only=True)
+
+fig = px.imshow(
+    dfcorr,
+    text_auto=True,
+    aspect="auto",
+)
+st.subheader("Correlação entre Distâncias e Entregas")
+st.plotly_chart(fig, use_container_width=True)
+
+# Quantidade de entregas por dia
+fig = px.histogram(
+    df_plot,
+    x="data_entrega",
+    y="delivered",
+    histfunc="sum",
+    labels={"delivered": "Entregas", "data_entrega": "Data de Entrega"},
+)
+fig.update_layout(bargap=0.1, xaxis=dict(tickformat="%a(%d)"))
+fig.update_xaxes(showgrid=True, rangeslider_visible=True, tickmode="linear")
+fig.for_each_trace(
+    lambda t: t.update(hovertemplate=t.hovertemplate.replace("sum of", ""))
+)
+fig.for_each_yaxis(lambda a: a.update(title_text=a.title.text.replace("sum of", "")))
+st.subheader("Entregas por Dia")
 st.plotly_chart(fig, use_container_width=True)
