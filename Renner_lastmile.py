@@ -39,8 +39,3 @@ st.markdown(
 >>> ##### *_**Alunos**: Florensa Dimer | [Leandra Torbes](https://github.com/ltorbes) | [Luiz Eduardo](https://github.com/luizsouzars)_*""",
     True,
 )
-
-st.button(
-    "Informações sobre os dados",
-    help="Informações sobre o que cada coluna representa e algumas métricas calculáveis",
-)
