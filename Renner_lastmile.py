@@ -35,7 +35,7 @@ st.markdown("")
 st.markdown("")
 st.markdown(
     """
->>> ##### *_Este trabalho faz parte da disciplina de **Visualização de Dados**, lecionada pela professora [Isabel Harb Manssour](https://www.pucrs.br/pesquisadores/isabel-harb-manssour/)._*
->>> ##### *_**Alunos**: Florensa Dimer | [Leandra Torbes](https://github.com/ltorbes) | [Luiz Eduardo](https://github.com/luizsouzars)_*""",
+> ##### *_Este trabalho faz parte da disciplina de **Visualização de Dados**, lecionada pela professora [Isabel Harb Manssour](https://www.pucrs.br/pesquisadores/isabel-harb-manssour/)._*
+> ##### *_**Alunos**: [Leandra Torbes](https://github.com/ltorbes) | [Luiz Eduardo](https://github.com/luizsouzars)_*""",
     True,
 )
