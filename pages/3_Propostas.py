@@ -226,7 +226,7 @@ if ckb:
         ),
     )
     if len(data) == 2:
-        user_date_input = tuple(map(pd.to_datetime, data))
+        user_date_input = (data[0], data[1])
         start_date, end_date = user_date_input
         dfq2_plot = dfq2_plot.loc[dfq2_plot["dia_mes"].between(start_date, end_date)]
 
