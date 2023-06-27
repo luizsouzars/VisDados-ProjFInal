@@ -212,7 +212,7 @@ if ckb:
         "Total de Entregas",
         0,
         dfq2_plot["delivered"].max() * 2,
-        (0, dfq2_plot["delivered"].max()),
+        (0, int(dfq2_plot["delivered"].max())),
         step=1,
     )  # Getting the input.
 
